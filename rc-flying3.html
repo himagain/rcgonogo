@@ -11,6 +11,7 @@
         .go-green { background-color: #10b981; color: black; }
         .go-amber { background-color: #eab308; color: black; }
         .go-red   { background-color: #ef4444; color: white; }
+        
         .map-container { height: 200px; border-radius: 16px; overflow: hidden; }
         .sticky-left { position: sticky; left: 0; background: #1f2937; z-index: 10; }
         
@@ -18,12 +19,13 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            min-width: 32px;
-            height: 32px;
+            min-width: 34px;
+            height: 34px;
             border-radius: 9999px;
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             font-weight: 700;
-            padding: 0 6px;
+            border: 2px solid rgba(255,255,255,0.3);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
         }
     </style>
 </head>
@@ -56,7 +58,7 @@
             <p class="text-xs text-center text-gray-400 mt-2">Tap map to change location</p>
         </div>
 
-        <!-- Compact Table -->
+        <!-- Table -->
         <div class="overflow-x-auto rounded-3xl border border-gray-700 bg-gray-900">
             <table class="w-full" id="flyingTable">
                 <thead>
@@ -85,9 +87,9 @@
         }
 
         function getWindColor(wind) {
-            if (wind <= 8) return "bg-green-500 text-black";
+            if (wind <= 8) return "bg-green-600 text-white";
             if (wind <= 12) return "bg-yellow-500 text-black";
-            return "bg-red-500 text-white";
+            return "bg-red-600 text-white";
         }
 
         function getWeatherIcon(rain) {
@@ -99,7 +101,7 @@
         async function fetchWeather(lat, lon, placeName = "Selected Location") {
             document.getElementById("location").innerHTML = `🔄 Loading...`;
             try {
-                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation_probability,visibility&timezone=Europe/London`;
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation_probability&timezone=Europe/London`;
                 const res = await fetch(url);
                 const data = await res.json();
 
@@ -161,13 +163,13 @@
                         <div class="flex justify-center mb-1">
                             <span class="text-lg">${getWeatherIcon(slot.rain)}</span>
                         </div>
-                        <div class="font-medium">${slot.temp}°C</div>
+                        <div class="font-medium text-sm">${slot.temp}°C</div>
                         
-                        <!-- Wind Info Blobs in one line -->
+                        <!-- Wind Blobs Side by Side -->
                         <div class="flex justify-center items-center gap-1 my-1.5">
-                            <div class="info-blob bg-gray-700 text-white">${arrow}</div>
+                            <div class="info-blob bg-white/20 text-white border-white/40">${arrow}</div>
                             <div class="info-blob ${windColor}">${slot.wind}</div>
-                            <div class="info-blob bg-gray-600 text-white">G${slot.gust}</div>
+                            <div class="info-blob bg-white/20 text-white border-white/40">G${slot.gust}</div>
                         </div>
                         
                         <div class="text-[10px] opacity-75">${slot.rain}% rain</div>
