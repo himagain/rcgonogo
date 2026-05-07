@@ -13,11 +13,16 @@
         .go-red   { background-color: #ef4444; color: white; }
         .map-container { height: 200px; border-radius: 16px; overflow: hidden; }
         .sticky-left { position: sticky; left: 0; background: #1f2937; z-index: 10; }
-        .wind-rose { font-size: 1.4rem; line-height: 1; }
-        table td, table th { padding: 5px 4px; font-size: 0.85rem; }
-        .wind-low { color: #4ade80; }
-        .wind-med { color: #fbbf24; }
-        .wind-high { color: #f87171; }
+        .wind-blob {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 38px;
+            height: 38px;
+            border-radius: 9999px;
+            font-weight: 700;
+            font-size: 0.95rem;
+        }
     </style>
 </head>
 <body class="bg-gray-950 text-white">
@@ -49,7 +54,7 @@
             <p class="text-xs text-center text-gray-400 mt-2">Tap map to change location</p>
         </div>
 
-        <!-- Very Compact Table -->
+        <!-- Compact Table -->
         <div class="overflow-x-auto rounded-3xl border border-gray-700 bg-gray-900">
             <table class="w-full" id="flyingTable">
                 <thead>
@@ -78,9 +83,9 @@
         }
 
         function getWindColor(wind) {
-            if (wind < 8) return "wind-low";
-            if (wind < 12) return "wind-med";
-            return "wind-high";
+            if (wind <= 8) return "bg-green-500 text-black";
+            if (wind <= 12) return "bg-yellow-500 text-black";
+            return "bg-red-500 text-white";
         }
 
         function getWeatherIcon(rain) {
@@ -92,7 +97,7 @@
         async function fetchWeather(lat, lon, placeName = "Selected Location") {
             document.getElementById("location").innerHTML = `🔄 Loading...`;
             try {
-                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation_probability&timezone=Europe/London`;
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation_probability,visibility&timezone=Europe/London`;
                 const res = await fetch(url);
                 const data = await res.json();
 
@@ -121,7 +126,8 @@
                         wind: Math.round(data.hourly.wind_speed_10m[idx] || 8),
                         gust: Math.round(data.hourly.wind_gusts_10m[idx] || 12),
                         dir: Math.round(data.hourly.wind_direction_10m[idx] || 0),
-                        rain: Math.round(data.hourly.precipitation_probability[idx] || 20)
+                        rain: Math.round(data.hourly.precipitation_probability[idx] || 20),
+                        vis: Math.round((data.hourly.visibility[idx] || 15000) / 1000) // in km
                     });
                 }
                 days.push({date: dateStr, slots});
@@ -144,29 +150,34 @@
             tbody.innerHTML = "";
 
             forecastData.forEach(day => {
-                let html = `<tr class="border-b border-gray-700"><td class="sticky-left font-medium pl-3 py-2.5">${day.date}</td>`;
+                let html = `<tr class="border-b border-gray-700"><td class="sticky-left font-medium pl-3 py-2">${day.date}</td>`;
                 day.slots.forEach(slot => {
                     const st = getStatus(slot.temp, slot.wind, slot.rain);
                     const arrow = getWindArrow(slot.dir);
-                    const windColor = getWindColor(slot.wind);
+                    const blobClass = getWindColor(slot.wind);
 
                     html += `<td class="${st.cls} py-2 text-center">
-                        <div class="flex justify-center mb-0.5">
-                            <span>${getWeatherIcon(slot.rain)}</span>
+                        <div class="flex justify-center mb-1">
+                            <span class="text-lg">${getWeatherIcon(slot.rain)}</span>
                         </div>
-                        <div class="font-medium text-sm">${slot.temp}°C</div>
+                        <div class="font-medium">${slot.temp}°C</div>
                         
-                        <div class="flex justify-center items-center gap-1 my-1">
-                            <span class="wind-rose">${arrow}</span>
-                            <span class="${windColor} font-medium">${slot.wind}</span>
+                        <!-- Wind Speed Blob -->
+                        <div class="flex justify-center my-1">
+                            <div class="wind-blob ${blobClass}">${slot.wind}</div>
                         </div>
                         
-                        <div class="text-[10px] opacity-75">${slot.dir}° • Gust ${slot.gust}</div>
-                        <div class="text-[10px] opacity-75">${slot.rain}%</div>
+                        <div class="flex justify-center items-center gap-1 text-[10px]">
+                            <span>${arrow}</span>
+                            <span>${slot.dir}°</span>
+                        </div>
+                        <div class="text-[10px] opacity-75">Gust ${slot.gust}</div>
+                        <div class="text-[10px] opacity-75">${slot.vis} km vis</div>
+                        <div class="text-[10px] opacity-75">${slot.rain}% rain</div>
                         
                         <div class="flex justify-center items-center gap-1 mt-1">
                             <span class="text-xl">${st.emoji}</span>
-                            <span class="text-[10px] font-bold">${st.score}/10</span>
+                            <span class="text-xs font-bold">${st.score}/10</span>
                         </div>
                     </td>`;
                 });
