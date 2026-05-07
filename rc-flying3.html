@@ -8,25 +8,17 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        .go-green { background-color: #10b981; color: black; }
+        .go-green { background-color: #22c55e; color: black; }
         .go-amber { background-color: #eab308; color: black; }
         .go-red   { background-color: #ef4444; color: white; }
-        
         .map-container { height: 200px; border-radius: 16px; overflow: hidden; }
         .sticky-left { position: sticky; left: 0; background: #1f2937; z-index: 10; }
-        
-        .info-blob {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 34px;
-            height: 34px;
-            border-radius: 9999px;
-            font-size: 0.85rem;
-            font-weight: 700;
-            border: 2px solid rgba(255,255,255,0.3);
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        .blob { 
+            display: inline-flex; align-items: center; justify-content: center;
+            min-width: 34px; height: 34px; border-radius: 9999px;
+            font-size: 0.85rem; font-weight: 700;
         }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; }
     </style>
 </head>
 <body class="bg-gray-950 text-white">
@@ -36,18 +28,21 @@
 
         <!-- Sliders -->
         <div class="bg-gray-900 rounded-3xl p-4 mb-5">
-            <div class="space-y-4">
+            <div class="grid grid-cols-3 gap-4 text-xs">
                 <div>
-                    <label class="block text-xs mb-1">Max Wind <span id="windVal" class="font-bold">10</span> mph</label>
+                    <label>Max Wind</label>
                     <input type="range" id="windSlider" min="5" max="25" value="10" class="w-full accent-emerald-500">
+                    <span id="windVal" class="font-bold">10</span> mph
                 </div>
                 <div>
-                    <label class="block text-xs mb-1">Min Temp <span id="tempVal" class="font-bold">10</span> °C</label>
+                    <label>Min Temp</label>
                     <input type="range" id="tempSlider" min="0" max="20" value="10" class="w-full accent-emerald-500">
+                    <span id="tempVal" class="font-bold">10</span>°C
                 </div>
                 <div>
-                    <label class="block text-xs mb-1">Max Rain <span id="rainVal" class="font-bold">20</span> %</label>
+                    <label>Max Rain</label>
                     <input type="range" id="rainSlider" min="0" max="100" value="20" class="w-full accent-emerald-500">
+                    <span id="rainVal" class="font-bold">20</span>%
                 </div>
             </div>
         </div>
@@ -74,11 +69,23 @@
         </div>
     </div>
 
+    <!-- Hourly Modal -->
+    <div id="hourlyModal" class="modal flex items-end">
+        <div class="bg-gray-900 w-full rounded-t-3xl max-h-[85vh] overflow-auto">
+            <div class="sticky top-0 bg-gray-900 p-4 border-b border-gray-700 flex justify-between items-center">
+                <h2 id="modalDate" class="text-lg font-bold"></h2>
+                <button onclick="closeModal()" class="text-3xl leading-none">×</button>
+            </div>
+            <div id="hourlyContent" class="p-4 space-y-3"></div>
+        </div>
+    </div>
+
     <script>
         let currentLat = 53.018;
         let currentLon = -1.728;
         let forecastData = [];
         let map, marker;
+        let fullHourlyData = {};
 
         const compass = ["N","NE","E","SE","S","SW","W","NW"];
 
@@ -88,24 +95,19 @@
 
         function getWindColor(wind) {
             if (wind <= 8) return "bg-green-600 text-white";
-            if (wind <= 12) return "bg-yellow-500 text-black";
+            if (wind <= 12) return "bg-amber-500 text-black";
             return "bg-red-600 text-white";
-        }
-
-        function getWeatherIcon(rain) {
-            if (rain >= 60) return "🌧️";
-            if (rain >= 30) return "🌦️";
-            return "⛅";
         }
 
         async function fetchWeather(lat, lon, placeName = "Selected Location") {
             document.getElementById("location").innerHTML = `🔄 Loading...`;
             try {
-                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation_probability&timezone=Europe/London`;
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation_probability,cloud_cover&timezone=Europe/London`;
                 const res = await fetch(url);
                 const data = await res.json();
 
-                forecastData = processData(data);
+                forecastData = processDailyData(data);
+                fullHourlyData = data.hourly;
                 renderTable();
                 document.getElementById("location").innerHTML = `🌍 ${placeName}`;
             } catch (e) {
@@ -113,7 +115,7 @@
             }
         }
 
-        function processData(data) {
+        function processDailyData(data) {
             const days = [];
             const now = new Date();
             for (let i = 0; i < 8; i++) {
@@ -133,7 +135,7 @@
                         rain: Math.round(data.hourly.precipitation_probability[idx] || 20)
                     });
                 }
-                days.push({date: dateStr, slots});
+                days.push({date: dateStr, dayIndex: i, slots});
             }
             return days;
         }
@@ -153,36 +155,72 @@
             tbody.innerHTML = "";
 
             forecastData.forEach(day => {
-                let html = `<tr class="border-b border-gray-700"><td class="sticky-left font-medium pl-3 py-2">${day.date}</td>`;
+                let html = `<tr class="border-b border-gray-700 cursor-pointer hover:bg-gray-800" onclick="showHourly(${day.dayIndex}, '${day.date}')">
+                    <td class="sticky-left font-medium pl-3 py-3">${day.date}</td>`;
+                
                 day.slots.forEach(slot => {
                     const st = getStatus(slot.temp, slot.wind, slot.rain);
                     const arrow = getWindArrow(slot.dir);
                     const windColor = getWindColor(slot.wind);
 
                     html += `<td class="${st.cls} py-2 text-center">
-                        <div class="flex justify-center mb-1">
-                            <span class="text-lg">${getWeatherIcon(slot.rain)}</span>
+                        <div class="text-sm">${slot.temp}°C</div>
+                        <div class="flex justify-center gap-1 my-1">
+                            <div class="blob bg-white/20">${arrow}</div>
+                            <div class="blob ${windColor}">${slot.wind}</div>
+                            <div class="blob bg-white/20">G${slot.gust}</div>
                         </div>
-                        <div class="font-medium text-sm">${slot.temp}°C</div>
-                        
-                        <!-- Wind Blobs Side by Side -->
-                        <div class="flex justify-center items-center gap-1 my-1.5">
-                            <div class="info-blob bg-white/20 text-white border-white/40">${arrow}</div>
-                            <div class="info-blob ${windColor}">${slot.wind}</div>
-                            <div class="info-blob bg-white/20 text-white border-white/40">G${slot.gust}</div>
-                        </div>
-                        
-                        <div class="text-[10px] opacity-75">${slot.rain}% rain</div>
-                        
-                        <div class="flex justify-center items-center gap-1 mt-1">
-                            <span class="text-xl">${st.emoji}</span>
-                            <span class="text-xs font-bold">${st.score}/10</span>
-                        </div>
+                        <div class="text-[10px] opacity-75">${slot.rain}%</div>
                     </td>`;
                 });
                 html += `</tr>`;
                 tbody.innerHTML += html;
             });
+        }
+
+        function showHourly(dayIndex, dateStr) {
+            const modal = document.getElementById("hourlyModal");
+            const content = document.getElementById("hourlyContent");
+            content.innerHTML = "";
+
+            document.getElementById("modalDate").textContent = dateStr;
+
+            const startIdx = dayIndex * 24;
+            for (let h = 6; h < 21; h += 1) {   // 6am to 8pm
+                const idx = startIdx + h;
+                const hourStr = h.toString().padStart(2, '0') + ":00";
+
+                const temp = Math.round(fullHourlyData.temperature_2m[idx]);
+                const wind = Math.round(fullHourlyData.wind_speed_10m[idx]);
+                const gust = Math.round(fullHourlyData.wind_gusts_10m[idx]);
+                const dir = Math.round(fullHourlyData.wind_direction_10m[idx]);
+                const rain = Math.round(fullHourlyData.precipitation_probability[idx]);
+                const cloud = Math.round(fullHourlyData.cloud_cover[idx]);
+
+                const arrow = getWindArrow(dir);
+
+                content.innerHTML += `
+                    <div class="bg-gray-800 rounded-2xl p-4 flex gap-4 items-center">
+                        <div class="w-12 text-center">
+                            <div class="text-lg font-bold">${hourStr}</div>
+                        </div>
+                        <div class="flex-1 grid grid-cols-5 gap-3 text-center">
+                            <div>${temp}°C</div>
+                            <div class="flex justify-center items-center gap-1">
+                                <span>${arrow}</span><span>${wind}</span>
+                            </div>
+                            <div>G${gust}</div>
+                            <div>${rain}%</div>
+                            <div>${cloud}% ☁️</div>
+                        </div>
+                    </div>`;
+            }
+
+            modal.style.display = "flex";
+        }
+
+        function closeModal() {
+            document.getElementById("hourlyModal").style.display = "none";
         }
 
         function updateSliders() {
