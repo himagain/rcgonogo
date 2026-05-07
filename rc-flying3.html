@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>RC Flying • Go/No-Go</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        .go-green { background-color: #10b981; color: black; }
+        .go-amber { background-color: #eab308; color: black; }
+        .go-red   { background-color: #ef4444; color: white; }
+        .map-container { height: 200px; border-radius: 16px; overflow: hidden; }
+        .sticky-left { position: sticky; left: 0; background: #1f2937; z-index: 10; }
+        .wind-rose { font-size: 1.4rem; line-height: 1; }
+        table td, table th { padding: 5px 4px; font-size: 0.85rem; }
+        .wind-low { color: #4ade80; }
+        .wind-med { color: #fbbf24; }
+        .wind-high { color: #f87171; }
+    </style>
+</head>
+<body class="bg-gray-950 text-white">
+    <div class="max-w-7xl mx-auto p-3">
+        <h1 class="text-3xl font-bold text-center mb-1">RC Flying</h1>
+        <p class="text-center text-emerald-400 mb-4" id="location">Ashbourne, Derbyshire</p>
+
+        <!-- Sliders -->
+        <div class="bg-gray-900 rounded-3xl p-4 mb-5">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs mb-1">Max Wind <span id="windVal" class="font-bold">10</span> mph</label>
+                    <input type="range" id="windSlider" min="5" max="25" value="10" class="w-full accent-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-xs mb-1">Min Temp <span id="tempVal" class="font-bold">10</span> °C</label>
+                    <input type="range" id="tempSlider" min="0" max="20" value="10" class="w-full accent-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-xs mb-1">Max Rain <span id="rainVal" class="font-bold">20</span> %</label>
+                    <input type="range" id="rainSlider" min="0" max="100" value="20" class="w-full accent-emerald-500">
+                </div>
+            </div>
+        </div>
+
+        <!-- Map -->
+        <div class="mb-5">
+            <div id="map" class="map-container shadow-2xl"></div>
+            <p class="text-xs text-center text-gray-400 mt-2">Tap map to change location</p>
+        </div>
+
+        <!-- Very Compact Table -->
+        <div class="overflow-x-auto rounded-3xl border border-gray-700 bg-gray-900">
+            <table class="w-full" id="flyingTable">
+                <thead>
+                    <tr class="bg-gray-800 text-[10px]">
+                        <th class="sticky-left pl-3 py-2">Date</th>
+                        <th>09-12</th>
+                        <th>12-15</th>
+                        <th>15-18</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody" class="text-xs"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let currentLat = 53.018;
+        let currentLon = -1.728;
+        let forecastData = [];
+        let map, marker;
+
+        const compass = ["N","NE","E","SE","S","SW","W","NW"];
+
+        function getWindArrow(deg) {
+            return compass[Math.floor((deg + 22.5) / 45) % 8];
+        }
+
+        function getWindColor(wind) {
+            if (wind < 8) return "wind-low";
+            if (wind < 12) return "wind-med";
+            return "wind-high";
+        }
+
+        function getWeatherIcon(rain) {
+            if (rain >= 60) return "🌧️";
+            if (rain >= 30) return "🌦️";
+            return "⛅";
+        }
+
+        async function fetchWeather(lat, lon, placeName = "Selected Location") {
+            document.getElementById("location").innerHTML = `🔄 Loading...`;
+            try {
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation_probability&timezone=Europe/London`;
+                const res = await fetch(url);
+                const data = await res.json();
+
+                forecastData = processData(data);
+                renderTable();
+                document.getElementById("location").innerHTML = `🌍 ${placeName}`;
+            } catch (e) {
+                alert("Weather API unavailable.");
+            }
+        }
+
+        function processData(data) {
+            const days = [];
+            const now = new Date();
+            for (let i = 0; i < 8; i++) {
+                const d = new Date(now);
+                d.setDate(d.getDate() + i);
+                const dateStr = d.toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'});
+                
+                const slots = [];
+                const startHours = [9, 12, 15];
+                for (let s = 0; s < 3; s++) {
+                    const idx = i * 24 + startHours[s];
+                    slots.push({
+                        temp: Math.round(data.hourly.temperature_2m[idx] || 12),
+                        wind: Math.round(data.hourly.wind_speed_10m[idx] || 8),
+                        gust: Math.round(data.hourly.wind_gusts_10m[idx] || 12),
+                        dir: Math.round(data.hourly.wind_direction_10m[idx] || 0),
+                        rain: Math.round(data.hourly.precipitation_probability[idx] || 20)
+                    });
+                }
+                days.push({date: dateStr, slots});
+            }
+            return days;
+        }
+
+        function getStatus(temp, wind, rain) {
+            const maxW = +document.getElementById("windSlider").value;
+            const minT = +document.getElementById("tempSlider").value;
+            const maxR = +document.getElementById("rainSlider").value;
+
+            if (wind > maxW) return {emoji:"🔴", score:2, cls:"go-red"};
+            if (temp < minT || rain > maxR) return {emoji:"🟡", score:5, cls:"go-amber"};
+            return {emoji:"🟢", score:9, cls:"go-green"};
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById("tableBody");
+            tbody.innerHTML = "";
+
+            forecastData.forEach(day => {
+                let html = `<tr class="border-b border-gray-700"><td class="sticky-left font-medium pl-3 py-2.5">${day.date}</td>`;
+                day.slots.forEach(slot => {
+                    const st = getStatus(slot.temp, slot.wind, slot.rain);
+                    const arrow = getWindArrow(slot.dir);
+                    const windColor = getWindColor(slot.wind);
+
+                    html += `<td class="${st.cls} py-2 text-center">
+                        <div class="flex justify-center mb-0.5">
+                            <span>${getWeatherIcon(slot.rain)}</span>
+                        </div>
+                        <div class="font-medium text-sm">${slot.temp}°C</div>
+                        
+                        <div class="flex justify-center items-center gap-1 my-1">
+                            <span class="wind-rose">${arrow}</span>
+                            <span class="${windColor} font-medium">${slot.wind}</span>
+                        </div>
+                        
+                        <div class="text-[10px] opacity-75">${slot.dir}° • Gust ${slot.gust}</div>
+                        <div class="text-[10px] opacity-75">${slot.rain}%</div>
+                        
+                        <div class="flex justify-center items-center gap-1 mt-1">
+                            <span class="text-xl">${st.emoji}</span>
+                            <span class="text-[10px] font-bold">${st.score}/10</span>
+                        </div>
+                    </td>`;
+                });
+                html += `</tr>`;
+                tbody.innerHTML += html;
+            });
+        }
+
+        function updateSliders() {
+            document.getElementById("windVal").textContent = document.getElementById("windSlider").value;
+            document.getElementById("tempVal").textContent = document.getElementById("tempSlider").value;
+            document.getElementById("rainVal").textContent = document.getElementById("rainSlider").value;
+            renderTable();
+        }
+
+        window.onload = () => {
+            ["windSlider","tempSlider","rainSlider"].forEach(id => {
+                document.getElementById(id).addEventListener("input", updateSliders);
+            });
+
+            map = L.map('map').setView([currentLat, currentLon], 12);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+            
+            marker = L.marker([currentLat, currentLon]).addTo(map)
+                .bindPopup("Tap to change location").openPopup();
+
+            map.on('click', function(e) {
+                currentLat = e.latlng.lat;
+                currentLon = e.latlng.lng;
+                marker.setLatLng(e.latlng);
+                fetchWeather(currentLat, currentLon, "Selected Location");
+            });
+
+            fetchWeather(currentLat, currentLon, "Ashbourne, Derbyshire");
+        };
+    </script>
+</body>
+</html>
