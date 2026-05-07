@@ -11,18 +11,14 @@
         .go-green { background-color: #22c55e; color: black; }
         .go-amber { background-color: #eab308; color: black; }
         .go-red   { background-color: #ef4444; color: white; }
-        
         .map-container { height: 200px; border-radius: 16px; overflow: hidden; }
         .sticky-left { position: sticky; left: 0; background: #1f2937; z-index: 10; }
-        
         .blob { 
             display: inline-flex; align-items: center; justify-content: center;
             min-width: 34px; height: 34px; border-radius: 9999px;
             font-size: 0.85rem; font-weight: 700;
         }
-        .hour-row {
-            transition: all 0.2s;
-        }
+        .hour-row { transition: all 0.2s; }
     </style>
 </head>
 <body class="bg-gray-950 text-white">
@@ -74,7 +70,7 @@
     </div>
 
     <!-- Hourly Modal -->
-    <div id="hourlyModal" class="modal flex items-end">
+    <div id="hourlyModal" class="modal flex items-end hidden">
         <div class="bg-gray-900 w-full rounded-t-3xl max-h-[85vh] overflow-auto">
             <div class="sticky top-0 bg-gray-900 p-4 border-b border-gray-700 flex justify-between">
                 <h2 id="modalDate" class="text-lg font-bold"></h2>
@@ -110,7 +106,7 @@
         }
 
         async function fetchWeather(lat, lon, placeName = "Selected Location") {
-            document.getElementById("location").innerHTML = `🔄 Loading...`;
+            document.getElementById("location").innerHTML = `🔄 Loading live data...`;
             try {
                 const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation_probability,cloud_cover&timezone=Europe/London`;
                 const res = await fetch(url);
@@ -121,6 +117,7 @@
                 renderTable();
                 document.getElementById("location").innerHTML = `🌍 ${placeName}`;
             } catch (e) {
+                console.error(e);
                 alert("Weather service unavailable.");
             }
         }
@@ -155,96 +152,5 @@
                 let html = `<tr class="border-b border-gray-700 cursor-pointer hover:bg-gray-800" onclick="showHourly(${day.dayIndex}, '${day.date}')">
                     <td class="sticky-left font-medium pl-3 py-3">${day.date}</td>`;
                 
-                // Placeholder slots (you can expand if needed)
-                for (let i = 0; i < 3; i++) {
-                    html += `<td class="py-3 text-center text-gray-400">—</td>`;
-                }
-                html += `</tr>`;
-                tbody.innerHTML += html;
-            });
-        }
-
-        function showHourly(dayIndex, dateStr) {
-            const modal = document.getElementById("hourlyModal");
-            const content = document.getElementById("hourlyContent");
-            content.innerHTML = "";
-            document.getElementById("modalDate").textContent = dateStr + " - Hourly";
-
-            const startIdx = dayIndex * 24;
-            for (let h = 6; h <= 20; h++) {
-                const idx = startIdx + h;
-                const hourStr = h.toString().padStart(2, '0') + ":00";
-
-                const temp = Math.round(fullHourlyData.temperature_2m[idx]);
-                const wind = Math.round(fullHourlyData.wind_speed_10m[idx]);
-                const gust = Math.round(fullHourlyData.wind_gusts_10m[idx]);
-                const dir = Math.round(fullHourlyData.wind_direction_10m[idx]);
-                const rain = Math.round(fullHourlyData.precipitation_probability[idx]);
-                const cloud = Math.round(fullHourlyData.cloud_cover[idx]);
-
-                const st = getStatus(temp, wind, rain);
-                const arrow = getWindArrow(dir);
-
-                content.innerHTML += `
-                    <div onclick="this.classList.toggle('ring-2'); this.classList.toggle('ring-white/50')" 
-                         class="hour-row ${st.cls} rounded-2xl p-3 flex items-center gap-3">
-                        <div class="w-12 text-center font-medium">${hourStr}</div>
-                        <div class="flex-1 flex items-center gap-4">
-                            <span class="text-2xl">${getWeatherIcon(rain)}</span>
-                            <div>
-                                <div class="font-medium">${temp}°C</div>
-                                <div class="text-xs opacity-90">${rain}% rain • ${cloud}% cloud</div>
-                            </div>
-                        </div>
-                        <div class="flex gap-1">
-                            <div class="blob bg-white/20">${arrow}</div>
-                            <div class="blob ${getWindColor(wind)}">${wind}</div>
-                        </div>
-                        <div class="text-right">
-                            <div class="text-xl">${st.emoji}</div>
-                        </div>
-                    </div>`;
-            }
-
-            modal.style.display = "flex";
-        }
-
-        function getWindColor(wind) {
-            if (wind <= 8) return "bg-green-600 text-white";
-            if (wind <= 12) return "bg-amber-500 text-black";
-            return "bg-red-600 text-white";
-        }
-
-        function closeModal() {
-            document.getElementById("hourlyModal").style.display = "none";
-        }
-
-        function updateSliders() {
-            document.getElementById("windVal").textContent = document.getElementById("windSlider").value;
-            document.getElementById("tempVal").textContent = document.getElementById("tempSlider").value;
-            document.getElementById("rainVal").textContent = document.getElementById("rainSlider").value;
-        }
-
-        window.onload = () => {
-            ["windSlider","tempSlider","rainSlider"].forEach(id => {
-                document.getElementById(id).addEventListener("input", updateSliders);
-            });
-
-            map = L.map('map').setView([currentLat, currentLon], 12);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-            
-            marker = L.marker([currentLat, currentLon]).addTo(map)
-                .bindPopup("Tap to change location").openPopup();
-
-            map.on('click', function(e) {
-                currentLat = e.latlng.lat;
-                currentLon = e.latlng.lng;
-                marker.setLatLng(e.latlng);
-                fetchWeather(currentLat, currentLon, "Selected Location");
-            });
-
-            fetchWeather(currentLat, currentLon, "Ashbourne, Derbyshire");
-        };
-    </script>
-</body>
-</html>
+                // Show summary for the 3 time slots
+                for (let s = 0; s < 3
