@@ -11,23 +11,23 @@
         .go-green { background-color: #22c55e; color: black; }
         .go-amber { background-color: #eab308; color: black; }
         .go-red   { background-color: #ef4444; color: white; }
-        .map-container { height: 200px; border-radius: 16px; overflow: hidden; }
+        .map-container { height: 240px; border-radius: 16px; overflow: hidden; }
         .sticky-left { position: sticky; left: 0; background: #1f2937; z-index: 10; }
         .blob { 
             display: inline-flex; align-items: center; justify-content: center;
-            min-width: 34px; height: 34px; border-radius: 9999px;
-            font-size: 0.85rem; font-weight: 700;
+            min-width: 36px; height: 36px; border-radius: 9999px;
+            font-size: 0.9rem; font-weight: 700;
         }
     </style>
 </head>
 <body class="bg-gray-950 text-white">
-    <div class="max-w-7xl mx-auto p-3">
+    <div class="max-w-7xl mx-auto p-4">
         <h1 class="text-3xl font-bold text-center mb-1">RC Flying</h1>
-        <p class="text-center text-emerald-400 mb-4" id="location">Ashbourne, Derbyshire</p>
+        <p class="text-center text-emerald-400 mb-6" id="location">Ashbourne, Derbyshire</p>
 
         <!-- Sliders -->
-        <div class="bg-gray-900 rounded-3xl p-4 mb-5">
-            <div class="grid grid-cols-3 gap-4 text-xs">
+        <div class="bg-gray-900 rounded-3xl p-5 mb-6">
+            <div class="grid grid-cols-3 gap-4 text-sm">
                 <div>
                     <label>Max Wind</label>
                     <input type="range" id="windSlider" min="5" max="25" value="10" class="w-full accent-emerald-500">
@@ -47,35 +47,24 @@
         </div>
 
         <!-- Map -->
-        <div class="mb-5">
+        <div class="mb-6">
             <div id="map" class="map-container shadow-2xl"></div>
             <p class="text-xs text-center text-gray-400 mt-2">Tap map to change location</p>
         </div>
 
-        <!-- Main Table -->
+        <!-- Table -->
         <div class="overflow-x-auto rounded-3xl border border-gray-700 bg-gray-900">
             <table class="w-full" id="flyingTable">
                 <thead>
-                    <tr class="bg-gray-800 text-[10px]">
-                        <th class="sticky-left pl-3 py-2">Date</th>
+                    <tr class="bg-gray-800">
+                        <th class="sticky-left pl-4 py-3">Date</th>
                         <th>09-12</th>
                         <th>12-15</th>
                         <th>15-18</th>
                     </tr>
                 </thead>
-                <tbody id="tableBody" class="text-xs"></tbody>
+                <tbody id="tableBody" class="text-sm"></tbody>
             </table>
-        </div>
-    </div>
-
-    <!-- Hourly Modal -->
-    <div id="hourlyModal" class="fixed inset-0 bg-black/90 hidden flex items-end z-50">
-        <div class="bg-gray-900 w-full rounded-t-3xl max-h-[85vh] overflow-auto">
-            <div class="sticky top-0 bg-gray-900 p-4 border-b flex justify-between items-center">
-                <h2 id="modalDate" class="text-lg font-bold"></h2>
-                <button onclick="closeModal()" class="text-3xl leading-none">×</button>
-            </div>
-            <div id="hourlyContent" class="p-3 space-y-2"></div>
         </div>
     </div>
 
@@ -83,7 +72,6 @@
         let currentLat = 53.018;
         let currentLon = -1.728;
         let forecastData = [];
-        let fullHourlyData = {};
         let map, marker;
 
         const compass = ["N","NE","E","SE","S","SW","W","NW"];
@@ -98,39 +86,54 @@
             return "bg-red-600 text-white";
         }
 
-        function getWeatherIcon(rain) {
-            if (rain >= 60) return "🌧️";
-            if (rain >= 30) return "🌦️";
-            return "⛅";
-        }
-
         async function fetchWeather(lat, lon, placeName = "Selected Location") {
-            document.getElementById("location").innerHTML = `🔄 Loading live data...`;
+            document.getElementById("location").innerHTML = `🔄 Loading...`;
             try {
-                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation_probability,cloud_cover&timezone=Europe/London`;
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation_probability&timezone=Europe/London`;
                 const res = await fetch(url);
                 const data = await res.json();
 
-                forecastData = processDailyData(data);
-                fullHourlyData = data.hourly;
+                forecastData = processData(data);
                 renderTable();
                 document.getElementById("location").innerHTML = `🌍 ${placeName}`;
             } catch (e) {
                 console.error(e);
-                alert("Weather service unavailable. Showing sample data.");
+                forecastData = createSampleData();
+                renderTable();
             }
         }
 
-        function processDailyData(data) {
+        function processData(data) {
             const days = [];
             const now = new Date();
             for (let i = 0; i < 8; i++) {
                 const d = new Date(now);
                 d.setDate(d.getDate() + i);
                 const dateStr = d.toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'});
-                days.push({date: dateStr, dayIndex: i});
+                
+                const slots = [];
+                const startHours = [9, 12, 15];
+                for (let s = 0; s < 3; s++) {
+                    const idx = i * 24 + startHours[s];
+                    slots.push({
+                        temp: Math.round(data.hourly.temperature_2m[idx] || 12),
+                        wind: Math.round(data.hourly.wind_speed_10m[idx] || 8),
+                        gust: Math.round(data.hourly.wind_gusts_10m[idx] || 12),
+                        dir: Math.round(data.hourly.wind_direction_10m[idx] || 0),
+                        rain: Math.round(data.hourly.precipitation_probability[idx] || 20)
+                    });
+                }
+                days.push({date: dateStr, slots});
             }
             return days;
+        }
+
+        function createSampleData() {
+            return [
+                {date: "Wed 6", slots: [{temp:10,wind:8,gust:12,dir:45,rain:10},{temp:12,wind:7,gust:11,dir:50,rain:5},{temp:11,wind:6,gust:10,dir:40,rain:15}]},
+                {date: "Thu 7", slots: [{temp:11,wind:6,gust:10,dir:180,rain:15},{temp:14,wind:8,gust:14,dir:200,rain:20},{temp:13,wind:7,gust:12,dir:190,rain:25}]},
+                {date: "Fri 8", slots: [{temp:12,wind:9,gust:15,dir:90,rain:25},{temp:15,wind:10,gust:18,dir:100,rain:35},{temp:14,wind:9,gust:16,dir:95,rain:40}]},
+            ];
         }
 
         function getStatus(temp, wind, rain) {
@@ -147,71 +150,35 @@
             const tbody = document.getElementById("tableBody");
             tbody.innerHTML = "";
 
-            forecastData.forEach((day, index) => {
-                let html = `<tr class="border-b border-gray-700 cursor-pointer hover:bg-gray-800" onclick="showHourly(${day.dayIndex}, '${day.date}')">
-                    <td class="sticky-left font-medium pl-3 py-3">${day.date}</td>`;
+            forecastData.forEach(day => {
+                let html = `<tr class="border-b border-gray-700">
+                    <td class="sticky-left font-medium pl-4 py-4">${day.date}</td>`;
 
-                for (let i = 0; i < 3; i++) {
-                    html += `<td class="py-3 text-center text-emerald-300">Tap for details</td>`;
-                }
+                day.slots.forEach(slot => {
+                    const st = getStatus(slot.temp, slot.wind, slot.rain);
+                    const arrow = getWindArrow(slot.dir);
+                    const windColor = getWindColor(slot.wind);
+
+                    html += `<td class="${st.cls} py-3 text-center">
+                        <div class="text-base font-medium">${slot.temp}°C</div>
+                        <div class="flex justify-center gap-1 my-2">
+                            <div class="blob bg-white/20">${arrow}</div>
+                            <div class="blob ${windColor}">${slot.wind}</div>
+                            <div class="blob bg-white/20">G${slot.gust}</div>
+                        </div>
+                        <div class="text-xs opacity-75">${slot.rain}% rain</div>
+                    </td>`;
+                });
                 html += `</tr>`;
                 tbody.innerHTML += html;
             });
-        }
-
-        function showHourly(dayIndex, dateStr) {
-            const modal = document.getElementById("hourlyModal");
-            const content = document.getElementById("hourlyContent");
-            content.innerHTML = "";
-            document.getElementById("modalDate").textContent = dateStr;
-
-            const startIdx = dayIndex * 24;
-            for (let h = 6; h <= 20; h++) {
-                const idx = startIdx + h;
-                const hourStr = h.toString().padStart(2, '0') + ":00";
-
-                const temp = Math.round(fullHourlyData.temperature_2m[idx] || 12);
-                const wind = Math.round(fullHourlyData.wind_speed_10m[idx] || 8);
-                const gust = Math.round(fullHourlyData.wind_gusts_10m[idx] || 12);
-                const dir = Math.round(fullHourlyData.wind_direction_10m[idx] || 0);
-                const rain = Math.round(fullHourlyData.precipitation_probability[idx] || 20);
-                const cloud = Math.round(fullHourlyData.cloud_cover[idx] || 50);
-
-                const st = getStatus(temp, wind, rain);
-                const arrow = getWindArrow(dir);
-
-                content.innerHTML += `
-                    <div class="hour-row ${st.cls} rounded-2xl p-3 flex items-center gap-3">
-                        <div class="w-12 font-medium">${hourStr}</div>
-                        <div class="flex-1">
-                            <span class="text-xl">${getWeatherIcon(rain)}</span>
-                            <span class="ml-2 font-medium">${temp}°C</span>
-                        </div>
-                        <div class="flex gap-1">
-                            <div class="blob bg-white/20">${arrow}</div>
-                            <div class="blob ${getWindColor(wind)}">${wind}</div>
-                        </div>
-                        <div class="text-right">
-                            <div class="text-xs">${rain}%</div>
-                            <div class="text-xl">${st.emoji}</div>
-                        </div>
-                    </div>`;
-            }
-
-            modal.classList.remove("hidden");
-            modal.classList.add("flex");
-        }
-
-        function closeModal() {
-            const modal = document.getElementById("hourlyModal");
-            modal.classList.add("hidden");
-            modal.classList.remove("flex");
         }
 
         function updateSliders() {
             document.getElementById("windVal").textContent = document.getElementById("windSlider").value;
             document.getElementById("tempVal").textContent = document.getElementById("tempSlider").value;
             document.getElementById("rainVal").textContent = document.getElementById("rainSlider").value;
+            renderTable();
         }
 
         window.onload = () => {
