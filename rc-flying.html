@@ -23,10 +23,10 @@
 
         <!-- Location Search -->
         <div class="flex gap-2 mb-6">
-            <input id="searchBox" type="text" placeholder="Search location (e.g. Ashbourne)" 
-                   class="flex-1 bg-gray-900 border border-gray-700 rounded-2xl px-5 py-3 text-white">
-            <button onclick="searchNewLocation()" 
-                    class="bg-emerald-600 hover:bg-emerald-700 px-6 rounded-2xl">Go</button>
+            <input id="searchBox" type="text" placeholder="Search location (e.g. London, UK)" 
+                   class="flex-1 bg-gray-900 border border-gray-700 rounded-2xl px-5 py-3">
+            <button onclick="searchLocation()" 
+                    class="bg-emerald-600 hover:bg-emerald-700 px-6 rounded-2xl">Search</button>
         </div>
 
         <!-- Sliders -->
@@ -50,6 +50,7 @@
         <!-- Map -->
         <div class="mb-8">
             <div id="map" class="map-container shadow-2xl"></div>
+            <p class="text-xs text-center text-gray-400 mt-2">Tap anywhere on the map to change location</p>
         </div>
 
         <!-- Table -->
@@ -74,8 +75,9 @@
         let currentLat = 53.018;
         let currentLon = -1.728;
         let forecastData = [];
+        let map, marker;
 
-        async function fetchWeather(lat, lon, placeName = "Current Location") {
+        async function fetchWeather(lat, lon, placeName = "Selected Location") {
             document.getElementById("location").textContent = "Fetching live weather...";
             try {
                 const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,wind_speed_10m,wind_direction_10m,precipitation_probability&timezone=Europe/London`;
@@ -86,7 +88,8 @@
                 renderTable();
                 document.getElementById("location").innerHTML = `🌍 ${placeName}`;
             } catch (e) {
-                alert("Weather service unavailable. Showing sample data.");
+                console.error(e);
+                alert("Weather API error. Showing sample data.");
                 loadSampleData();
             }
         }
@@ -137,13 +140,12 @@
                 let html = `<tr class="border-b border-gray-700"><td class="sticky-left font-medium pl-4 py-4">${day.date}</td>`;
                 day.slots.forEach(slot => {
                     const st = getStatus(slot.temp, slot.wind, slot.rain);
-                    html += `
-                        <td class="${st.cls} py-3">
-                            <div class="text-sm">${slot.temp}°C • ${slot.wind} mph ${slot.dir}</div>
-                            <div class="text-xs opacity-75">${slot.rain}% rain</div>
-                            <div class="text-3xl my-1">${st.emoji}</div>
-                            <div class="text-xs font-bold">${st.score}/10</div>
-                        </td>`;
+                    html += `<td class="${st.cls} py-3">
+                        <div class="text-sm">${slot.temp}°C • ${slot.wind} mph ${slot.dir}</div>
+                        <div class="text-xs opacity-75">${slot.rain}% rain</div>
+                        <div class="text-3xl my-1">${st.emoji}</div>
+                        <div class="text-xs font-bold">${st.score}/10</div>
+                    </td>`;
                 });
                 html += `</tr>`;
                 tbody.innerHTML += html;
@@ -157,29 +159,28 @@
             renderTable();
         }
 
-        async function searchNewLocation() {
+        function searchLocation() {
             const query = document.getElementById("searchBox").value.trim();
-            if (!query) return;
-            // Simple demo - you can improve with geocoding later
-            alert("Location search would use a geocoding API.\n\nFor now using Ashbourne as example.");
+            if (!query) return alert("Please enter a location");
+            alert("Full geocoding coming soon.\n\nFor now, tap on the map to change location.");
         }
 
         // Initialize
         window.onload = () => {
             // Slider listeners
             ["windSlider", "tempSlider", "rainSlider"].forEach(id => {
-                const el = document.getElementById(id);
-                el.addEventListener("input", updateSliders);
+                document.getElementById(id).addEventListener("input", updateSliders);
             });
 
-            // Load initial weather
-            fetchWeather(currentLat, currentLon, "Ashbourne, Derbyshire");
-
-            // Map
-            const map = L.map('map').setView([currentLat, currentLon], 12);
+            // Initialize Map
+            map = L.map('map').setView([currentLat, currentLon], 12);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-            L.marker([currentLat, currentLon]).addTo(map).bindPopup("Ashbourne, Derbyshire").openPopup();
-        };
-    </script>
-</body>
-</html>
+            
+            marker = L.marker([currentLat, currentLon]).addTo(map)
+                .bindPopup("Ashbourne, Derbyshire").openPopup();
+
+            // ←←← THIS IS THE IMPORTANT PART - Map Click
+            map.on('click', function(e) {
+                currentLat = e.latlng.lat;
+                currentLon = e.latlng.lng;
+                marker.setLatLng(e
