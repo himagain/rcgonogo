@@ -11,16 +11,16 @@
         .go-green { background-color: #10b981; color: black; }
         .go-amber { background-color: #eab308; color: black; }
         .go-red   { background-color: #ef4444; color: white; }
-        .map-container { height: 240px; border-radius: 16px; overflow: hidden; }
+        .map-container { height: 220px; border-radius: 16px; overflow: hidden; }
         .sticky-left { position: sticky; left: 0; background: #1f2937; z-index: 10; }
-        table td, table th { padding: 8px 4px; font-size: 0.95rem; }
-        .wind-info { font-size: 0.8rem; line-height: 1.1; }
+        .wind-rose { font-size: 1.35rem; line-height: 1; }
+        table td, table th { padding: 6px 4px; font-size: 0.9rem; }
     </style>
 </head>
 <body class="bg-gray-950 text-white">
     <div class="max-w-7xl mx-auto p-3">
         <h1 class="text-3xl font-bold text-center mb-1">RC Flying</h1>
-        <p class="text-center text-emerald-400 mb-5" id="location">Ashbourne, Derbyshire</p>
+        <p class="text-center text-emerald-400 mb-4" id="location">Ashbourne, Derbyshire</p>
 
         <!-- Sliders -->
         <div class="bg-gray-900 rounded-3xl p-5 mb-6">
@@ -50,14 +50,14 @@
         <div class="overflow-x-auto rounded-3xl border border-gray-700 bg-gray-900">
             <table class="w-full" id="flyingTable">
                 <thead>
-                    <tr class="bg-gray-800 text-sm">
-                        <th class="sticky-left pl-3 py-3">Date</th>
+                    <tr class="bg-gray-800 text-xs">
+                        <th class="sticky-left pl-3 py-2">Date</th>
                         <th>09-12</th>
                         <th>12-15</th>
                         <th>15-18</th>
                     </tr>
                 </thead>
-                <tbody id="tableBody" class="text-sm"></tbody>
+                <tbody id="tableBody" class="text-xs"></tbody>
             </table>
         </div>
     </div>
@@ -68,9 +68,10 @@
         let forecastData = [];
         let map, marker;
 
+        const compass = ["N","NE","E","SE","S","SW","W","NW"];
+
         function getWindArrow(deg) {
-            const arrows = ["↑","↗","→","↘","↓","↙","←","↖"];
-            return arrows[Math.floor((deg + 22.5) / 45) % 8];
+            return compass[Math.floor((deg + 22.5) / 45) % 8];
         }
 
         function getWeatherIcon(rain) {
@@ -90,7 +91,7 @@
                 renderTable();
                 document.getElementById("location").innerHTML = `🌍 ${placeName}`;
             } catch (e) {
-                alert("Weather API error.");
+                alert("Weather API unavailable.");
             }
         }
 
@@ -139,18 +140,22 @@
                     const st = getStatus(slot.temp, slot.wind, slot.rain);
                     const arrow = getWindArrow(slot.dir);
                     
-                    html += `<td class="${st.cls} py-3">
-                        <div class="flex justify-center gap-1 items-center">
+                    html += `<td class="${st.cls} py-2 text-center">
+                        <div class="flex justify-center mb-1">
                             <span class="text-xl">${getWeatherIcon(slot.rain)}</span>
                         </div>
                         <div class="font-medium">${slot.temp}°C</div>
-                        <div class="wind-info flex justify-center items-center gap-1">
-                            <span>${arrow}</span>
-                            <span>${slot.wind} <span class="text-xs">(${slot.gust})</span></span>
+                        
+                        <!-- Wind Rose -->
+                        <div class="flex justify-center items-center gap-1 my-1">
+                            <span class="wind-rose">${arrow}</span>
+                            <span class="text-xs font-mono">${slot.dir}°</span>
                         </div>
-                        <div class="text-[10px] opacity-75">${slot.dir}°</div>
-                        <div class="text-xs opacity-75">${slot.rain}%</div>
-                        <div class="flex justify-center items-center gap-1.5 mt-1">
+                        
+                        <div class="text-xs">${slot.wind} <span class="opacity-75">(${slot.gust})</span></div>
+                        <div class="text-[10px] opacity-75">${slot.rain}% rain</div>
+                        
+                        <div class="flex justify-center items-center gap-1 mt-2">
                             <span class="text-xl">${st.emoji}</span>
                             <span class="text-xs font-bold">${st.score}/10</span>
                         </div>
@@ -177,7 +182,7 @@
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
             
             marker = L.marker([currentLat, currentLon]).addTo(map)
-                .bindPopup("Tap to change location").openPopup();
+                .bindPopup("Tap anywhere to update").openPopup();
 
             map.on('click', function(e) {
                 currentLat = e.latlng.lat;
