@@ -13,15 +13,17 @@
         .go-red   { background-color: #ef4444; color: white; }
         .map-container { height: 200px; border-radius: 16px; overflow: hidden; }
         .sticky-left { position: sticky; left: 0; background: #1f2937; z-index: 10; }
-        .wind-blob {
+        
+        .info-blob {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 38px;
-            height: 38px;
+            min-width: 32px;
+            height: 32px;
             border-radius: 9999px;
+            font-size: 0.8rem;
             font-weight: 700;
-            font-size: 0.95rem;
+            padding: 0 6px;
         }
     </style>
 </head>
@@ -126,8 +128,7 @@
                         wind: Math.round(data.hourly.wind_speed_10m[idx] || 8),
                         gust: Math.round(data.hourly.wind_gusts_10m[idx] || 12),
                         dir: Math.round(data.hourly.wind_direction_10m[idx] || 0),
-                        rain: Math.round(data.hourly.precipitation_probability[idx] || 20),
-                        vis: Math.round((data.hourly.visibility[idx] || 15000) / 1000) // in km
+                        rain: Math.round(data.hourly.precipitation_probability[idx] || 20)
                     });
                 }
                 days.push({date: dateStr, slots});
@@ -154,7 +155,7 @@
                 day.slots.forEach(slot => {
                     const st = getStatus(slot.temp, slot.wind, slot.rain);
                     const arrow = getWindArrow(slot.dir);
-                    const blobClass = getWindColor(slot.wind);
+                    const windColor = getWindColor(slot.wind);
 
                     html += `<td class="${st.cls} py-2 text-center">
                         <div class="flex justify-center mb-1">
@@ -162,17 +163,13 @@
                         </div>
                         <div class="font-medium">${slot.temp}°C</div>
                         
-                        <!-- Wind Speed Blob -->
-                        <div class="flex justify-center my-1">
-                            <div class="wind-blob ${blobClass}">${slot.wind}</div>
+                        <!-- Wind Info Blobs in one line -->
+                        <div class="flex justify-center items-center gap-1 my-1.5">
+                            <div class="info-blob bg-gray-700 text-white">${arrow}</div>
+                            <div class="info-blob ${windColor}">${slot.wind}</div>
+                            <div class="info-blob bg-gray-600 text-white">G${slot.gust}</div>
                         </div>
                         
-                        <div class="flex justify-center items-center gap-1 text-[10px]">
-                            <span>${arrow}</span>
-                            <span>${slot.dir}°</span>
-                        </div>
-                        <div class="text-[10px] opacity-75">Gust ${slot.gust}</div>
-                        <div class="text-[10px] opacity-75">${slot.vis} km vis</div>
                         <div class="text-[10px] opacity-75">${slot.rain}% rain</div>
                         
                         <div class="flex justify-center items-center gap-1 mt-1">
