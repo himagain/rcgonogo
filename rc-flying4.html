@@ -15,8 +15,8 @@
         .sticky-left { position: sticky; left: 0; background: #1f2937; z-index: 10; }
         .blob { 
             display: inline-flex; align-items: center; justify-content: center;
-            min-width: 36px; height: 36px; border-radius: 9999px;
-            font-size: 0.9rem; font-weight: 700;
+            min-width: 38px; height: 38px; border-radius: 9999px;
+            font-size: 0.95rem; font-weight: 700;
         }
     </style>
 </head>
@@ -131,7 +131,7 @@
                 const dateStr = d.toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'});
                 
                 const slots = [];
-                const startHours = [9, 12, 15];   // 9am, 12pm, 3pm
+                const startHours = [9, 12, 15];
                 for (let s = 0; s < 3; s++) {
                     const idx = i * 24 + startHours[s];
                     slots.push({
@@ -149,8 +149,8 @@
 
         function createSampleData() {
             return [
-                {date: "Wed 6", dayIndex: 0, slots: [{temp:11,wind:8,gust:12,dir:45,rain:10},{temp:13,wind:7,gust:11,dir:50,rain:5},{temp:12,wind:6,gust:10,dir:40,rain:15}]},
-                {date: "Thu 7", dayIndex: 1, slots: [{temp:12,wind:6,gust:10,dir:180,rain:15},{temp:15,wind:9,gust:15,dir:200,rain:25},{temp:14,wind:8,gust:13,dir:190,rain:30}]},
+                {date: "Wed 6", dayIndex: 0, slots: [{temp:11,wind:8,gust:13,dir:45,rain:15},{temp:13,wind:7,gust:12,dir:50,rain:10},{temp:12,wind:6,gust:11,dir:40,rain:20}]},
+                {date: "Thu 7", dayIndex: 1, slots: [{temp:12,wind:6,gust:10,dir:180,rain:20},{temp:15,wind:9,gust:16,dir:200,rain:30},{temp:14,wind:8,gust:14,dir:190,rain:35}]},
             ];
         }
 
@@ -225,9 +225,9 @@
                             <div class="blob ${getWindColor(wind)}">${wind}</div>
                         </div>
                         <div class="text-right">
-                            <div class="text-xs">${rain}%</div>
+                            <div class="text-xs">${rain}% rain</div>
                             <div class="text-3xl">${st.emoji}</div>
-                            <div class="text-xs">${st.score}/10</div>
+                            <div class="text-xs font-bold">${st.score}/10</div>
                         </div>
                     </div>`;
             }
