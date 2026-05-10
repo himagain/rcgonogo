@@ -116,6 +116,7 @@
                 renderTable();
                 document.getElementById("location").innerHTML = `🌍 ${placeName}`;
             } catch (e) {
+                console.error(e);
                 forecastData = createSampleData();
                 renderTable();
             }
@@ -128,16 +129,28 @@
                 const d = new Date(now);
                 d.setDate(d.getDate() + i);
                 const dateStr = d.toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'});
-                days.push({date: dateStr, dayIndex: i});
+                
+                const slots = [];
+                const startHours = [9, 12, 15];   // 9am, 12pm, 3pm
+                for (let s = 0; s < 3; s++) {
+                    const idx = i * 24 + startHours[s];
+                    slots.push({
+                        temp: Math.round(data.hourly.temperature_2m[idx] || 12),
+                        wind: Math.round(data.hourly.wind_speed_10m[idx] || 8),
+                        gust: Math.round(data.hourly.wind_gusts_10m[idx] || 12),
+                        dir: Math.round(data.hourly.wind_direction_10m[idx] || 0),
+                        rain: Math.round(data.hourly.precipitation_probability[idx] || 20)
+                    });
+                }
+                days.push({date: dateStr, dayIndex: i, slots});
             }
             return days;
         }
 
         function createSampleData() {
             return [
-                {date: "Wed 6", dayIndex: 0},
-                {date: "Thu 7", dayIndex: 1},
-                {date: "Fri 8", dayIndex: 2},
+                {date: "Wed 6", dayIndex: 0, slots: [{temp:11,wind:8,gust:12,dir:45,rain:10},{temp:13,wind:7,gust:11,dir:50,rain:5},{temp:12,wind:6,gust:10,dir:40,rain:15}]},
+                {date: "Thu 7", dayIndex: 1, slots: [{temp:12,wind:6,gust:10,dir:180,rain:15},{temp:15,wind:9,gust:15,dir:200,rain:25},{temp:14,wind:8,gust:13,dir:190,rain:30}]},
             ];
         }
 
@@ -159,22 +172,21 @@
                 let html = `<tr class="border-b border-gray-700 cursor-pointer hover:bg-gray-800" onclick="showHourly(${day.dayIndex}, '${day.date}')">
                     <td class="sticky-left font-medium pl-4 py-4">${day.date}</td>`;
 
-                // Show actual summary for 3 time slots
-                for (let s = 0; s < 3; s++) {
-                    const slot = day.slots ? day.slots[s] : {temp:12, wind:8, gust:12, dir:180, rain:20};
+                day.slots.forEach(slot => {
                     const st = getStatus(slot.temp, slot.wind, slot.rain);
                     const arrow = getWindArrow(slot.dir);
                     const windColor = getWindColor(slot.wind);
 
                     html += `<td class="${st.cls} py-3 text-center">
                         <div class="text-base font-medium">${slot.temp}°C</div>
-                        <div class="flex justify-center gap-1 my-1">
+                        <div class="flex justify-center gap-1 my-2">
                             <div class="blob bg-white/20">${arrow}</div>
                             <div class="blob ${windColor}">${slot.wind}</div>
+                            <div class="blob bg-white/20">G${slot.gust}</div>
                         </div>
-                        <div class="text-xs opacity-75">${slot.rain}%</div>
+                        <div class="text-xs opacity-75">${slot.rain}% rain</div>
                     </td>`;
-                }
+                });
                 html += `</tr>`;
                 tbody.innerHTML += html;
             });
@@ -254,7 +266,7 @@
                 fetchWeather(currentLat, currentLon, "Selected Location");
             });
 
-            fetchWeather(currentLat, currentLon, "Ashbourne 4b, Derbyshire");
+            fetchWeather(currentLat, currentLon, "Ashbourne, Derbyshire");
         };
     </script>
 </body>
