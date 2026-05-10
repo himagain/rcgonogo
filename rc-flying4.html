@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>RC Flying • Go/No-Go</title>
+    <title>RC Flying 4 version• Go/No-Go</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -15,8 +15,8 @@
         .sticky-left { position: sticky; left: 0; background: #1f2937; z-index: 10; }
         .blob { 
             display: inline-flex; align-items: center; justify-content: center;
-            min-width: 38px; height: 38px; border-radius: 9999px;
-            font-size: 0.95rem; font-weight: 700;
+            min-width: 36px; height: 36px; border-radius: 9999px;
+            font-size: 0.9rem; font-weight: 700;
         }
     </style>
 </head>
@@ -107,7 +107,7 @@
         async function fetchWeather(lat, lon, placeName = "Selected Location") {
             document.getElementById("location").innerHTML = `🔄 Loading live data...`;
             try {
-                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation_probability,cloud_cover&timezone=Europe/London`;
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation_probability&timezone=Europe/London`;
                 const res = await fetch(url);
                 const data = await res.json();
 
@@ -227,7 +227,7 @@
                         <div class="text-right">
                             <div class="text-xs">${rain}% rain</div>
                             <div class="text-3xl">${st.emoji}</div>
-                            <div class="text-xs font-bold">${st.score}/10</div>
+                            <div class="text-xs">${st.score}/10</div>
                         </div>
                     </div>`;
             }
@@ -246,6 +246,7 @@
             document.getElementById("windVal").textContent = document.getElementById("windSlider").value;
             document.getElementById("tempVal").textContent = document.getElementById("tempSlider").value;
             document.getElementById("rainVal").textContent = document.getElementById("rainSlider").value;
+            renderTable();           // ← This was missing!
         }
 
         window.onload = () => {
